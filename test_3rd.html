@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CipherVault 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --neon: #00ffe7; --neon2: #ff2d78; --neon3: #ffe600;
+            --bg: #03050f; --panel: rgba(0,255,231,0.04);
+            --border: rgba(0,255,231,0.18); --text: #c8fff8; --dim: #4a7a73;
+            --glow: 0 0 16px #00ffe7aa, 0 0 40px #00ffe733;
+            --glow2: 0 0 16px #ff2d78aa, 0 0 40px #ff2d7833;
+        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Share Tech Mono',monospace}
+        #canvas-container{position:fixed;inset:0;z-index:0}
+        #ui{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+        .glass-panel{pointer-events:all;background:var(--panel);border:1px solid var(--border);border-radius:2px;backdrop-filter:blur(18px);box-shadow:var(--glow),inset 0 0 60px rgba(0,255,231,0.03);padding:36px 40px 32px;width:min(540px,94vw);position:relative;overflow:hidden}
+        .glass-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--neon),transparent);animation:scanline 3s linear infinite}
+        @keyframes scanline{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        .glass-panel::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,231,0.012) 2px,rgba(0,255,231,0.012) 4px);pointer-events:none}
+        .title-row{display:flex;align-items:center;gap:14px;margin-bottom:28px}
+        .title-icon{width:38px;height:38px;border:1.5px solid var(--neon);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--glow);font-size:18px;animation:pulse-icon 2.5s ease-in-out infinite}
+        @keyframes pulse-icon{0%,100%{box-shadow:var(--glow)}50%{box-shadow:0 0 30px #00ffe7cc,0 0 60px #00ffe755}}
+        h1{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:0.18em;color:var(--neon);text-shadow:var(--glow);text-transform:uppercase}
+        .subtitle{font-size:0.65rem;color:var(--dim);letter-spacing:0.22em;text-transform:uppercase;margin-top:2px}
+        .mode-toggle{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);border-radius:2px;overflow:hidden}
+        .mode-btn{flex:1;padding:10px 0;background:transparent;border:none;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;color:var(--dim);text-transform:uppercase;transition:all 0.25s;position:relative;overflow:hidden}
+        .mode-btn::before{content:'';position:absolute;inset:0;background:var(--neon);opacity:0;transition:opacity 0.25s}
+        .mode-btn.active{color:var(--bg)}.mode-btn.active::before{opacity:1}
+        .mode-btn span{position:relative;z-index:1}
+        .mode-btn:not(.active):hover{color:var(--neon)}
+        .mode-btn.decrypt.active::before{background:var(--neon2)}.mode-btn.decrypt.active{color:var(--bg)}
+        .field{margin-bottom:18px}
+        label{display:block;font-size:0.6rem;color:var(--dim);letter-spacing:0.25em;text-transform:uppercase;margin-bottom:6px}
+        input[type="text"],textarea{width:100%;background:rgba(0,255,231,0.03);border:1px solid var(--border);border-radius:2px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.95rem;padding:10px 14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;resize:none}
+        input[type="text"]:focus,textarea:focus{border-color:var(--neon);box-shadow:0 0 0 2px rgba(0,255,231,0.12)}
+        textarea{height:80px;line-height:1.6}
+        .run-btn{width:100%;padding:13px;background:transparent;border:1.5px solid var(--neon);border-radius:2px;color:var(--neon);font-family:'Orbitron',sans-serif;font-weight:700;font-size:0.78rem;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;box-shadow:var(--glow);transition:all 0.2s;position:relative;overflow:hidden;margin-bottom:16px}
+        .run-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(0,255,231,0.15),transparent);transition:left 0.4s}
+        .run-btn:hover::before{left:100%}
+        .run-btn:hover{background:rgba(0,255,231,0.08);box-shadow:0 0 30px #00ffe7aa}
+        .run-btn:active{transform:scale(0.98)}
+        .run-btn.decrypt-mode{border-color:var(--neon2);color:var(--neon2);box-shadow:var(--glow2)}
+        .run-btn.decrypt-mode:hover{box-shadow:0 0 30px #ff2d78aa;background:rgba(255,45,120,0.08)}
+        .output-box{background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,231,0.1);border-radius:2px;padding:12px 14px;min-height:52px;font-size:0.95rem;color:var(--neon3);word-break:break-all;line-height:1.6;letter-spacing:0.04em;transition:all 0.3s;position:relative}
+        .output-box.has-content{border-color:rgba(255,230,0,0.3);box-shadow:0 0 12px rgba(255,230,0,0.1)}
+        .output-label{font-size:0.6rem;color:var(--dim);letter-spacing:0.25em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+        .copy-btn{background:none;border:none;cursor:pointer;color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;padding:2px 6px;border:1px solid var(--border);border-radius:2px;transition:all 0.2s}
+        .copy-btn:hover{color:var(--neon);border-color:var(--neon)}
+        #particle-canvas{position:fixed;inset:0;z-index:1;pointer-events:none}
+        .corner{position:absolute;width:12px;height:12px;border-color:var(--neon);border-style:solid;opacity:0.7}
+        .corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}.corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+        .corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}.corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+        .status-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:0.6rem;color:var(--dim);letter-spacing:0.15em}
+        .status-dot{width:6px;height:6px;border-radius:50%;background:var(--neon);animation:blink 1.5s ease-in-out infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+        @keyframes flash-output{0%{background:rgba(0,255,231,0.15)}100%{background:rgba(0,0,0,0.4)}}
+        .flash{animation:flash-output 0.5s ease-out}
+        #stream-display{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:hidden}
+        .stream-char{position:absolute;font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--neon);opacity:0;animation:fall linear forwards;text-shadow:0 0 6px var(--neon)}
+        @keyframes fall{0%{opacity:0.7;transform:translateY(-20px)}80%{opacity:0.3}100%{opacity:0;transform:translateY(120vh)}}
+        .key-hint{font-size:0.58rem;color:var(--dim);margin-top:4px;letter-spacing:0.1em}
+        .error-msg{color:var(--neon2);font-size:0.7rem;letter-spacing:0.1em;margin-top:-10px;margin-bottom:10px;display:none}
+        .error-msg.show{display:block}
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div id="stream-display"></div>
+
+    <div id="ui">
+        <div class="glass-panel">
+            <div class="corner tl"></div><div class="corner tr"></div>
+            <div class="corner bl"></div><div class="corner br"></div>
+
+            <div class="title-row">
+                <div class="title-icon">⬡</div>
+                <div>
+                    <h1>CipherVault</h1>
+                    <div class="subtitle">Autokey + Positional Salt Cipher Engine</div>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-dot"></div>
+                <span>SYSTEM ONLINE — 95-CHARACTER CIPHER ALPHABET LOADED</span>
+            </div>
+
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="btn-encrypt" onclick="setMode('encrypt')"><span>🔒 Encrypt</span></button>
+                <button class="mode-btn decrypt" id="btn-decrypt" onclick="setMode('decrypt')"><span>🔓 Decrypt</span></button>
+            </div>
+
+            <div class="field">
+                <label>Keyword (string)</label>
+                <input type="text" id="key-input" placeholder="Enter keyword..." value="secret" />
+                <div class="key-hint">Any string keyword — drives autokey shift chain.</div>
+            </div>
+
+            <div class="field">
+                <label id="text-label">Plaintext Input</label>
+                <textarea id="text-input" placeholder="Enter text to encrypt..."></textarea>
+            </div>
+
+            <div class="error-msg" id="error-msg">⚠ Please enter a keyword and some text.</div>
+
+            <button class="run-btn" id="run-btn" onclick="runCipher()">▶ Execute Cipher</button>
+
+            <div class="output-label">
+                <span id="output-label-text">Encrypted Output</span>
+                <button class="copy-btn" onclick="copyOutput()">[ COPY ]</button>
+            </div>
+            <div class="output-box" id="output-box">
+                <span style="color:var(--dim);font-size:0.8rem;">// awaiting input...</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ─── Cipher alphabets (exact match of Python source) ──────────────────────────
+        const A = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()<>?/,.;:\"`~-_+={}[]|\\'\ ";
+        const B = "9Vj6Q&o+2c>ps5w@E;z(|OGunHF3e[JyB{_MhD0^bId*ZXR`< /mf7LvY8}rqKTlCW!x?PgUki1aN.\\St-$@A4)\"# :%~,";
+
+        // ─── Encrypt: autokey (keyword + plaintext) + positional salt ─────────────────
+        function encrypt(text, keyword) {
+            const extKey = [...keyword, ...text];   // autokey = keyword || plaintext
+            const out = [];
+            for (let i = 0; i < text.length; i++) {
+                const salt      = i % 95;
+                const kShift    = A.indexOf(extKey[i % extKey.length]);
+                const pIdx      = A.indexOf(text[i]);
+                const safeP     = pIdx === -1 ? 0 : pIdx;
+                const cIdx      = (safeP + kShift + salt) % 95;
+                out.push(B[cIdx]);
+            }
+            return out.join('');
+        }
+
+        // ─── Decrypt: dynamic autokey rebuilt as chars are decoded ────────────────────
+        function decrypt(text, keyword) {
+            const extKey = [...keyword];            // start with keyword only
+            const out = [];
+            for (let i = 0; i < text.length; i++) {
+                const salt      = i % 95;
+                const kShift    = A.indexOf(extKey[i % extKey.length]);
+                const cIdx      = B.indexOf(text[i]);
+                const safeC     = cIdx === -1 ? 0 : cIdx;
+                const origIdx   = ((safeC - kShift - salt) % 95 + 95) % 95;
+                const decoded   = A[origIdx];
+                out.push(decoded);
+                extKey.push(decoded);              // extend key dynamically
+            }
+            return out.join('');
+        }
+
+        // ─── UI ───────────────────────────────────────────────────────────────────────
+        let currentMode = 'encrypt';
+
+        function setMode(mode) {
+            currentMode = mode;
+            const enc = document.getElementById('btn-encrypt');
+            const dec = document.getElementById('btn-decrypt');
+            const btn = document.getElementById('run-btn');
+            if (mode === 'encrypt') {
+                enc.classList.add('active'); dec.classList.remove('active');
+                btn.classList.remove('decrypt-mode');
+                btn.textContent = '▶ Execute Encrypt';
+                document.getElementById('text-label').textContent = 'Plaintext Input';
+                document.getElementById('text-input').placeholder = 'Enter text to encrypt...';
+                document.getElementById('output-label-text').textContent = 'Encrypted Output';
+            } else {
+                dec.classList.add('active'); enc.classList.remove('active');
+                btn.classList.add('decrypt-mode');
+                btn.textContent = '▶ Execute Decrypt';
+                document.getElementById('text-label').textContent = 'Ciphertext Input';
+                document.getElementById('text-input').placeholder = 'Enter text to decrypt...';
+                document.getElementById('output-label-text').textContent = 'Decrypted Output';
+            }
+            const box = document.getElementById('output-box');
+            box.innerHTML = '<span style="color:var(--dim);font-size:0.8rem;">// awaiting input...</span>';
+            box.classList.remove('has-content');
+        }
+
+        function runCipher() {
+            const keyword = document.getElementById('key-input').value;
+            const text    = document.getElementById('text-input').value;
+            const errMsg  = document.getElementById('error-msg');
+            if (!keyword.trim() || !text.trim()) {
+                errMsg.classList.add('show');
+                setTimeout(() => errMsg.classList.remove('show'), 2500);
+                return;
+            }
+            errMsg.classList.remove('show');
+            const result = currentMode === 'encrypt' ? encrypt(text, keyword) : decrypt(text, keyword);
+            const box = document.getElementById('output-box');
+            box.textContent = result;
+            box.classList.add('has-content', 'flash');
+            setTimeout(() => box.classList.remove('flash'), 500);
+            spawnStreamChars(result);
+            triggerCipherBurst();
+        }
+
+        function copyOutput() {
+            const txt = document.getElementById('output-box').textContent;
+            if (txt.startsWith('//')) return;
+            navigator.clipboard.writeText(txt).catch(() => {});
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = '[ COPIED! ]';
+            setTimeout(() => btn.textContent = '[ COPY ]', 1500);
+        }
+
+        // ─── Falling chars effect ─────────────────────────────────────────────────────
+        function spawnStreamChars(text) {
+            const container = document.getElementById('stream-display');
+            const chars = (text + text).split('').slice(0, 60);
+            chars.forEach((ch, i) => {
+                setTimeout(() => {
+                    const el = document.createElement('div');
+                    el.className = 'stream-char';
+                    el.textContent = ch;
+                    el.style.left = Math.random() * 98 + 'vw';
+                    const dur = 2 + Math.random() * 3;
+                    el.style.animation = `fall ${dur}s linear forwards`;
+                    const col = currentMode === 'encrypt' ? 'var(--neon)' : 'var(--neon2)';
+                    el.style.color = col;
+                    el.style.textShadow = `0 0 8px ${col}`;
+                    container.appendChild(el);
+                    setTimeout(() => el.remove(), dur * 1000 + 100);
+                }, i * 30);
+            });
+        }
+
+        // ─── Three.js background ─────────────────────────────────────────────────────
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 28);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        function hexGeometry(r) {
+            const pts = [];
+            for (let i = 0; i < 6; i++) {
+                const a = (Math.PI / 3) * i;
+                pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+            }
+            return new THREE.ShapeGeometry(new THREE.Shape(pts));
+        }
+
+        const hexGroup = new THREE.Group();
+        scene.add(hexGroup);
+        const hexes = [];
+        for (let i = 0; i < 80; i++) {
+            const geo = hexGeometry(0.4 + Math.random() * 0.7);
+            const mat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x00ffe7 : 0xff2d78, wireframe: true, transparent: true, opacity: 0.08 + Math.random() * 0.12 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set((Math.random() - 0.5) * 60, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20 - 5);
+            mesh.rotation.z = Math.random() * Math.PI;
+            hexGroup.add(mesh);
+            hexes.push({ mesh, speed: 0.001 + Math.random() * 0.003, drift: (Math.random() - 0.5) * 0.002 });
+        }
+
+        const torusKnotMat = new THREE.MeshBasicMaterial({ color: 0x00ffe7, wireframe: true, transparent: true, opacity: 0.12 });
+        const torusKnot = new THREE.Mesh(new THREE.TorusKnotGeometry(5, 0.18, 120, 16, 3, 5), torusKnotMat);
+        torusKnot.position.set(0, 0, -8);
+        scene.add(torusKnot);
+
+        const icoMat = new THREE.MeshBasicMaterial({ color: 0xff2d78, wireframe: true, transparent: true, opacity: 0.15 });
+        const ico = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), icoMat);
+        ico.position.set(0, 0, -4);
+        scene.add(ico);
+
+        const ptPos = new Float32Array(400 * 3);
+        for (let i = 0; i < 400; i++) {
+            ptPos[i*3]   = (Math.random()-.5)*80;
+            ptPos[i*3+1] = (Math.random()-.5)*60;
+            ptPos[i*3+2] = (Math.random()-.5)*40-10;
+        }
+        const ptGeo = new THREE.BufferGeometry();
+        ptGeo.setAttribute('position', new THREE.BufferAttribute(ptPos, 3));
+        scene.add(new THREE.Points(ptGeo, new THREE.PointsMaterial({ color: 0x00ffe7, size: 0.12, transparent: true, opacity: 0.35 })));
+
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', e => {
+            mouseX = (e.clientX / innerWidth - 0.5) * 2;
+            mouseY = -(e.clientY / innerHeight - 0.5) * 2;
+        });
+
+        let burstActive = false, burstTime = 0;
+        function triggerCipherBurst() {
+            burstActive = true; burstTime = 0;
+            icoMat.opacity = 0.6; torusKnotMat.opacity = 0.4;
+            icoMat.color.setHex(currentMode === 'encrypt' ? 0x00ffe7 : 0xff2d78);
+        }
+
+        const clock = new THREE.Clock();
+        (function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            torusKnot.rotation.x = t * 0.18; torusKnot.rotation.y = t * 0.12;
+            ico.rotation.x = t * 0.2; ico.rotation.y = t * 0.28; ico.rotation.z = t * 0.1;
+            hexes.forEach(({ mesh, speed, drift }) => {
+                mesh.rotation.z += speed; mesh.position.y += drift;
+                if (mesh.position.y > 22) mesh.position.y = -22;
+                if (mesh.position.y < -22) mesh.position.y = 22;
+            });
+            camera.position.x += (mouseX * 2 - camera.position.x) * 0.04;
+            camera.position.y += (mouseY * 1.5 - camera.position.y) * 0.04;
+            camera.lookAt(scene.position);
+            if (burstActive) {
+                burstTime += 0.04;
+                const decay = Math.max(0, 1 - burstTime);
+                icoMat.opacity = 0.15 + decay * 0.5;
+                torusKnotMat.opacity = 0.12 + decay * 0.28;
+                torusKnot.rotation.y += decay * 0.05;
+                if (burstTime > 1.5) burstActive = false;
+            }
+            renderer.render(scene, camera);
+        })();
+
+        // ─── Scanline overlay ─────────────────────────────────────────────────────────
+        const pc = document.getElementById('particle-canvas');
+        const ctx2 = pc.getContext('2d');
+        pc.width = innerWidth; pc.height = innerHeight;
+        let scanY = 0;
+        (function drawScan() {
+            ctx2.clearRect(0, 0, pc.width, pc.height);
+            const g = ctx2.createLinearGradient(0, scanY-40, 0, scanY+40);
+            g.addColorStop(0, 'transparent');
+            g.addColorStop(0.5, 'rgba(0,255,231,0.025)');
+            g.addColorStop(1, 'transparent');
+            ctx2.fillStyle = g;
+            ctx2.fillRect(0, scanY-40, pc.width, 80);
+            scanY = (scanY + 0.7) % pc.height;
+            requestAnimationFrame(drawScan);
+        })();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+            pc.width = innerWidth; pc.height = innerHeight;
+        });
+
+        setMode('encrypt');
+        document.getElementById('run-btn').textContent = '▶ Execute Cipher';
+    </script>
+</body>
+</html>
